@@ -76,7 +76,7 @@ const AdminLocations = ({ onSuccess, initialData }) => {
                 nombre: formData.nombre.trim(),
                 telefono_contacto: formData.telefono_contacto,
                 tipo_instalacion: formData.tipo_instalacion,
-                administrador_id: userId,
+                administrador_id: Number(userId),
                 direccion: {
                     direccion_completa: formData.direccion_completa,
                     distrito: formData.distrito,
