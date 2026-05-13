@@ -1,29 +1,32 @@
 import Cookies from 'js-cookie';
 import { API_ROUTES } from '../constants/apiRoutes';
+import { saveAuthTokens, getRefreshToken, clearAuthTokens } from '../utils/authTokens';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 const cookieConfig = {
   expires: 1,
   secure: globalThis.location.protocol === 'https:',
-  sameSite: 'strict'
+  sameSite: 'strict',
 };
 
 export const loginService = async (identifier, password) => {
   const payload = { username: identifier, password };
 
   const response = await fetch(`${API_URL}${API_ROUTES.AUTH.LOGIN}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-    credentials: "include",
+    credentials: 'include',
   });
 
   const result = await response.json();
-  if (!response.ok) throw new Error(result.message || "Error en el servidor");
+  if (!response.ok) throw new Error(result.message || 'Error en el servidor');
 
   if (result.data) {
-    const { user } = result.data;
+    const { accessToken, refreshToken, user } = result.data;
+    saveAuthTokens({ accessToken, refreshToken });
+
     if (user) {
       Cookies.set('user_role', user.rol, cookieConfig);
       Cookies.set('user_name', user.nombres, cookieConfig);
@@ -36,13 +39,17 @@ export const loginService = async (identifier, password) => {
 };
 
 export const logoutService = async () => {
+  const refreshToken = getRefreshToken();
+
   try {
     await fetch(`${API_URL}${API_ROUTES.AUTH.LOGOUT}`, {
-      method: "POST",
-      credentials: "include",
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+      credentials: 'include',
     });
   } catch (error) {
-    console.error("Error en la petición de logout:", error);
+    console.error('Error en la peticion de logout:', error);
   } finally {
     Cookies.remove('user_role');
     Cookies.remove('user_name');
@@ -53,22 +60,23 @@ export const logoutService = async () => {
     localStorage.removeItem('auth_sync');
     localStorage.removeItem('logout_sync');
     localStorage.removeItem('last_viewed_news');
+    clearAuthTokens();
 
-    globalThis.location.href = "/login";
+    globalThis.location.href = '/login';
   }
 };
 
 export const registerService = async (userData) => {
   const response = await fetch(`${API_URL}${API_ROUTES.USUARIOS.BASE}/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(userData),
   });
 
   const result = await response.json();
 
   if (!response.ok) {
-    throw new Error(result.message || "Error al registrar el usuario");
+    throw new Error(result.message || 'Error al registrar el usuario');
   }
 
   return result;
@@ -76,16 +84,16 @@ export const registerService = async (userData) => {
 
 export const completarEmailService = async (nuevoEmail) => {
   const response = await fetch(`${API_URL}${API_ROUTES.AUTH.COMPLETAR_EMAIL}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: nuevoEmail }),
-    credentials: "include",
+    credentials: 'include',
   });
 
   const result = await response.json();
 
   if (!response.ok) {
-    throw new Error(result.message || "Error al actualizar el correo");
+    throw new Error(result.message || 'Error al actualizar el correo');
   }
 
   return result.data;

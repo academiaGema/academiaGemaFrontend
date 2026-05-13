@@ -1,13 +1,28 @@
 import toast from 'react-hot-toast';
 import Cookies from 'js-cookie';
+import {
+  getAccessToken,
+  getRefreshToken,
+  saveAuthTokens,
+  clearAuthTokens,
+} from '../utils/authTokens';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 let isRefreshing = false;
 let failedQueue = [];
 
+const clearUiSession = () => {
+  Cookies.remove('user_role');
+  Cookies.remove('user_name');
+  Cookies.remove('user_lastname');
+  Cookies.remove('user_id');
+  Cookies.remove('last_viewed_news');
+  clearAuthTokens();
+};
+
 const processQueue = (error, token = null) => {
-  failedQueue.forEach(prom => {
+  failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error);
     } else {
@@ -19,31 +34,38 @@ const processQueue = (error, token = null) => {
 
 export const apiFetch = async (endpoint, options = {}) => {
   const isFormData = options.body instanceof FormData;
+  const accessToken = getAccessToken();
+  const requestHeaders = {
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...options.headers,
+  };
+
+  if (!requestHeaders.Authorization && accessToken) {
+    requestHeaders.Authorization = `Bearer ${accessToken}`;
+  }
+
   const defaultOptions = {
     ...options,
     credentials: 'include',
-    headers: {
-      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-      ...options.headers,
-    },
+    headers: requestHeaders,
   };
 
   let response = await fetch(`${API_URL}${endpoint}`, defaultOptions);
 
-  // Excluimos las rutas de auth y refresh para prevenir loops infinitos
+  // Excluimos las rutas de auth y refresh para prevenir loops infinitos.
   if (response.status === 401 && !endpoint.includes('/auth/')) {
     if (options._retry) {
       return response;
     }
 
     if (isRefreshing) {
-      return new Promise(function (resolve, reject) {
+      return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject });
-      }).then(() => {
-        return apiFetch(endpoint, { ...options, _retry: true });
-      }).catch(err => {
-        throw err;
-      });
+      })
+        .then(() => apiFetch(endpoint, { ...options, _retry: true }))
+        .catch((err) => {
+          throw err;
+        });
     }
 
     isRefreshing = true;
@@ -51,22 +73,27 @@ export const apiFetch = async (endpoint, options = {}) => {
     try {
       const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
         method: 'POST',
-        credentials: 'include'
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: getRefreshToken() }),
+        credentials: 'include',
       });
 
-      if (refreshRes.ok) {
-        processQueue(null, true);
-        return await apiFetch(endpoint, { ...options, _retry: true });
-      } else {
-        processQueue(new Error('Refresh auth cookie failed'), null);
-        throw new Error('No se pudo refrescar credenciales automáticas');
+      if (!refreshRes.ok) {
+        processQueue(new Error('Refresh auth failed'), null);
+        throw new Error('No se pudo refrescar credenciales automaticas');
       }
+
+      const refreshPayload = await refreshRes.json();
+      saveAuthTokens({
+        accessToken: refreshPayload?.data?.accessToken,
+        refreshToken: refreshPayload?.data?.refreshToken,
+      });
+
+      processQueue(null, true);
+      return await apiFetch(endpoint, { ...options, _retry: true });
     } catch {
-      Cookies.remove('user_role');
-      Cookies.remove('user_name');
-      Cookies.remove('user_id');
-      Cookies.remove('last_viewed_news');
-      toast.error("Tu sesión ha expirado", { id: 'session-expired' });
+      clearUiSession();
+      toast.error('Tu sesion ha expirado', { id: 'session-expired' });
       globalThis.location.href = '/login';
       return response;
     } finally {
@@ -77,32 +104,30 @@ export const apiFetch = async (endpoint, options = {}) => {
   return response;
 };
 
-// --- SOPORTE PARA MÉTODOS HTTP ---
-apiFetch.get = (endpoint, options = {}) =>
-  apiFetch(endpoint, { ...options, method: 'GET' });
+// --- SOPORTE PARA METODOS HTTP ---
+apiFetch.get = (endpoint, options = {}) => apiFetch(endpoint, { ...options, method: 'GET' });
 
 apiFetch.post = (endpoint, body, options = {}) =>
   apiFetch(endpoint, {
     ...options,
     method: 'POST',
-    body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined
+    body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
   });
 
 apiFetch.put = (endpoint, body, options = {}) =>
   apiFetch(endpoint, {
     ...options,
     method: 'PUT',
-    body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined
+    body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
   });
 
-apiFetch.delete = (endpoint, options = {}) =>
-  apiFetch(endpoint, { ...options, method: 'DELETE' });
+apiFetch.delete = (endpoint, options = {}) => apiFetch(endpoint, { ...options, method: 'DELETE' });
 
 apiFetch.patch = (endpoint, body, options = {}) =>
   apiFetch(endpoint, {
     ...options,
     method: 'PATCH',
-    body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined
+    body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
   });
 
 export default apiFetch;
