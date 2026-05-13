@@ -91,6 +91,14 @@ export const apiFetch = async (endpoint, options = {}) => {
       }
 
       const refreshPayload = await refreshRes.json();
+      if (
+        fallbackEnabled &&
+        (!refreshPayload?.data?.accessToken || !refreshPayload?.data?.refreshToken)
+      ) {
+        processQueue(new Error('Refresh fallback tokens missing'), null);
+        throw new Error('No se pudo renovar credenciales de Safari');
+      }
+
       saveAuthTokens({
         accessToken: refreshPayload?.data?.accessToken,
         refreshToken: refreshPayload?.data?.refreshToken,

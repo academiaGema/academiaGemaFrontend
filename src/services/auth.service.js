@@ -18,6 +18,13 @@ const cookieConfig = {
   sameSite: 'strict',
 };
 
+const clearVisibleAuthCookies = () => {
+  Cookies.remove('user_role');
+  Cookies.remove('user_name');
+  Cookies.remove('user_lastname');
+  Cookies.remove('user_id');
+};
+
 export const loginService = async (identifier, password) => {
   const payload = { username: identifier, password };
 
@@ -57,6 +64,12 @@ export const loginService = async (identifier, password) => {
         }
       } catch {
         // Safari fallback: activate storage + bearer only when cookie auth fails.
+        if (!accessToken || !refreshToken) {
+          clearVisibleAuthCookies();
+          clearAuthTokens();
+          throw new Error('No se pudo activar la sesión segura en Safari. Intenta nuevamente.');
+        }
+
         enableTokenFallback();
         saveAuthTokens({ accessToken, refreshToken });
       }
@@ -84,10 +97,7 @@ export const logoutService = async () => {
   } catch (error) {
     console.error('Error en la peticion de logout:', error);
   } finally {
-    Cookies.remove('user_role');
-    Cookies.remove('user_name');
-    Cookies.remove('user_lastname');
-    Cookies.remove('user_id');
+    clearVisibleAuthCookies();
 
     // Limpieza de datos antiguos cacheados para evitar confusiones
     localStorage.removeItem('auth_sync');
