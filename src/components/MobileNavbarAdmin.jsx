@@ -111,11 +111,20 @@ const MobileNavbarAdmin = () => {
                     </NavLink>
 
                     {/* 🌟 ACCIÓN CLAVE: VALIDAR PAGOS (DESTACADO EN EL CENTRO) */}
-                    <NavLink to="/dashboard/admin/payment-validation" className={({ isActive }) => `flex flex-col items-center gap-1.5 w-full transition-all relative top-[-8px] ${isActive ? 'text-orange-400' : 'text-orange-500'}`}>
-                        <div className={`p-3 rounded-full shadow-lg ${location.pathname === '/dashboard/admin/payment-validation' ? 'bg-orange-600 shadow-orange-500/50' : 'bg-orange-500 shadow-orange-500/30'}`}>
-                           <CheckCircle size={22} className="text-white" />
-                        </div>
-                        <span className="text-[8px] text-orange-500 uppercase font-black italic tracking-widest leading-tight text-center">Pagos</span>
+                    <NavLink
+                        to="/dashboard/admin/payment-validation"
+                        className={({ isActive }) => `flex flex-col items-center gap-1.5 w-full transition-all relative top-[-8px] ${isActive ? 'text-orange-400' : 'text-blue-100/50'}`}
+                    >
+                        {({ isActive }) => (
+                            <>
+                                <div className={`p-3 rounded-full shadow-lg transition-all ${isActive ? 'bg-orange-600 shadow-orange-500/50 scale-110' : 'bg-slate-800 shadow-slate-950/30'}`}>
+                                    <CheckCircle size={22} className={isActive ? 'text-white' : 'text-blue-100/60'} />
+                                </div>
+                                <span className={`text-[8px] uppercase font-black italic tracking-widest leading-tight text-center ${isActive ? 'text-orange-500' : 'text-blue-100/50'}`}>
+                                    Pagos
+                                </span>
+                            </>
+                        )}
                     </NavLink>
 
                     <button onClick={toggleMenu} className="flex flex-col items-center gap-1.5 w-full text-blue-100/50">
