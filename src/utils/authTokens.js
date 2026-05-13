@@ -56,4 +56,11 @@ export const clearAuthTokens = () => {
   globalThis.sessionStorage.removeItem(REFRESH_TOKEN_KEY);
 };
 
+export const enforceTokenStoragePolicy = () => {
+  if (!canUseSessionStorage() || isSafariBrowser()) return;
+  clearAuthTokens();
+};
+
+enforceTokenStoragePolicy();
+
 export const hasAuthTokens = () => Boolean(getAccessToken() && getRefreshToken());
